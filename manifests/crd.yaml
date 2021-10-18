@@ -27,6 +27,7 @@ spec:
                       type: string
                   required:
                     - name
+                # seconds between password rotations
                 passwordRotationInterval:
                   type: integer
               required:

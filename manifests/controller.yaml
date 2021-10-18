@@ -1,0 +1,19 @@
+apiVersion: metacontroller.k8s.io/v1alpha1
+kind: CompositeController
+metadata:
+  name: postgres-database-operator
+spec:
+  generateSelector: true
+  resyncPeriodSeconds: 3600
+  parentResource:
+    apiVersion: experimental.bujarmurati.com/v1
+    resource: postgresdatabases
+  childResources:
+  - apiVersion: v1
+    resource: secrets
+    updateStrategy:
+      method: InPlace
+  hooks:
+    sync:
+      webhook:
+        url: http://host.minikube.internal:3000/sync
