@@ -457,6 +457,17 @@ pytest = ">=5.4.0"
 testing = ["coverage", "hypothesis (>=5.7.1)"]
 
 [[package]]
+name = "pytest-describe"
+version = "2.0.0"
+description = "Describe-style plugin for pytest"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+pytest = ">=4.0.0"
+
+[[package]]
 name = "pyyaml"
 version = "6.0"
 description = "YAML parser and emitter for Python"
@@ -633,7 +644,7 @@ dev = ["pytest (>=4.6.2)", "black (>=19.3b0)"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "b186d7dd46443fc9fa6439ca1ead1bd1c97a094523061b11dfb129ae17e1f4d2"
+content-hash = "4d24621763d459b4a815fdee9b97b6e141779e62e99aa315c252da7c5e2e3938"
 
 [metadata.files]
 aiopg = [
@@ -842,6 +853,10 @@ pytest = [
 pytest-asyncio = [
     {file = "pytest-asyncio-0.16.0.tar.gz", hash = "sha256:7496c5977ce88c34379df64a66459fe395cd05543f0a2f837016e7144391fcfb"},
     {file = "pytest_asyncio-0.16.0-py3-none-any.whl", hash = "sha256:5f2a21273c47b331ae6aa5b36087047b4899e40f03f18397c0e65fa5cca54e9b"},
+]
+pytest-describe = [
+    {file = "pytest-describe-2.0.0.tar.gz", hash = "sha256:71b80ccf55e7d18c682e5048516a9f5b0aca0e93f31822424a62c87aafc96ef6"},
+    {file = "pytest_describe-2.0.0-py3-none-any.whl", hash = "sha256:4f179634074afbf9a5305b33e46ecb5263d21b212c344a49f618eb6f1278c143"},
 ]
 pyyaml = [
     {file = "PyYAML-6.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:d4db7c7aef085872ef65a8fd7d6d09a14ae91f691dec3e87ee5ee0539d516f53"},
