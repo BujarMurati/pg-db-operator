@@ -6,7 +6,7 @@ from loguru import logger
 
 async def health_check(request: Request) -> JSONResponse:
     try:
-        async with request.app.state.db.connection():
+        async with request.app.state.db.cursor():
             pass
         return JSONResponse({"status": "pass"})
     except Exception as e:
