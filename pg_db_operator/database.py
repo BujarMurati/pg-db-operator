@@ -30,11 +30,33 @@ class DatabaseServer:
             results = await cursor.fetchall()
             return len(results) > 0
 
+    async def user_has_all_privileges_on_database(self, name: str) -> bool:
+        async with self.cursor() as cursor:
+            if not (await self.database_exists(name) and await self.user_exists(name)):
+                return False
+            # https://www.postgresql.org/docs/current/functions-info.html#FUNCTIONS-INFO-ACCESS-TABLE
+            # Here we test for CREATE permissions, there does not seem to be an elegant way to
+            # verify that "ALL" privileges on a database were granted
+            await cursor.execute("SELECT has_database_privilege(%s, %s, 'CREATE')", (name, name))
+            result = await cursor.fetchone()
+            return result[0]
+
     async def create_database(self, name: str):
         async with self.cursor() as cursor:
-            logger.info("Attempting to create database '{name}'", name=name)
+            logger.info("Creating database '{name}'", name=name)
             statement = SQL("CREATE DATABASE {};").format(Identifier(name))
             await cursor.execute(statement)
 
     async def create_user(self, name: str, password: str):
-        pass
+        async with self.cursor() as cursor:
+            logger.info("Creating user '{name}'", name=name)
+            statement = SQL("CREATE USER {} WITH ENCRYPTED PASSWORD %s;").format(Identifier(name))
+            await cursor.execute(statement, (password,))
+
+    async def grant_all_privileges(self, name: str):
+        async with self.cursor() as cursor:
+            logger.info("Granting all privileges on database '{name}' to user '{name}'", name=name)
+            statement = SQL("GRANT ALL PRIVILEGES ON DATABASE {} TO {}").format(
+                Identifier(name), Identifier(name)
+            )
+            await cursor.execute(statement)

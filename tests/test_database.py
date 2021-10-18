@@ -18,6 +18,12 @@ class TestDatabaseServer(DatabaseServer):
     async def cleanup(self):
         for name in self.clean_up:
             async with self.cursor() as cursor:
+                if await self.user_has_all_privileges_on_database(name):
+                    await cursor.execute(
+                        SQL("REVOKE ALL PRIVILEGES ON DATABASE {} FROM {};").format(
+                            Identifier(name), Identifier(name)
+                        )
+                    )
                 await cursor.execute(SQL("DROP USER IF EXISTS {};").format(Identifier(name)))
                 await cursor.execute(SQL("DROP DATABASE IF EXISTS {};").format(Identifier(name)))
 
@@ -63,7 +69,35 @@ async def test_check_user_exists_when_user_already_exists(env):
 
 
 @pytest.mark.asyncio
+async def test_check_user_has_all_privileges_when_user_has_all_privileges(db):
+    assert await db.user_has_all_privileges_on_database("everything_exists")
+
+
+@pytest.mark.asyncio
+async def test_check_user_has_all_privileges_when_user_no_privileges(db):
+    assert not await db.user_has_all_privileges_on_database("user_and_db_but_no_privileged")
+
+
+@pytest.mark.asyncio
 async def test_create_database(db):
     name = "new_database"
     await db.create_database(name)
     assert await db.database_exists(name)
+
+
+@pytest.mark.asyncio
+async def test_create_user(db):
+    name = "new_database"
+    password = "test"
+    await db.create_user(name, password)
+    assert await db.user_exists(name)
+
+
+@pytest.mark.asyncio
+async def test_grant_privileges(db):
+    name = "new_database"
+    password = "test"
+    await db.create_user(name, password)
+    await db.create_database(name)
+    await db.grant_all_privileges(name)
+    assert await db.user_has_all_privileges_on_database(name)
