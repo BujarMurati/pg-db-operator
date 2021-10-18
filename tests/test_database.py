@@ -1,5 +1,34 @@
 import pytest
+from psycopg2.sql import SQL, Identifier
 from pg_db_operator.database import DatabaseServer
+
+
+class TestDatabaseServer(DatabaseServer):
+    def __init__(self):
+        self.clean_up = set()
+
+    async def create_database(self, name: str):
+        self.clean_up.add(name)
+        await super().create_database(name)
+
+    async def create_user(self, name: str, password: str):
+        self.clean_up.add(name)
+        await super().create_user(name, password)
+
+    async def cleanup(self):
+        for name in self.clean_up:
+            async with self.cursor() as cursor:
+                await cursor.execute(SQL("DROP USER IF EXISTS {};").format(Identifier(name)))
+                await cursor.execute(SQL("DROP DATABASE IF EXISTS {};").format(Identifier(name)))
+
+
+@pytest.fixture
+async def db(env):
+    db = TestDatabaseServer()
+    try:
+        yield db
+    finally:
+        await db.cleanup()
 
 
 @pytest.mark.asyncio
@@ -34,10 +63,7 @@ async def test_check_user_exists_when_user_already_exists(env):
 
 
 @pytest.mark.asyncio
-async def test_create_database(env):
-    db = DatabaseServer()
-    await db.create_database("new_database")
-    assert await db.database_exists("new_database")
-    # cleanup
-    async with db.cursor() as conn:
-        await conn.execute("DROP DATABASE new_database;")
+async def test_create_database(db):
+    name = "new_database"
+    await db.create_database(name)
+    assert await db.database_exists(name)

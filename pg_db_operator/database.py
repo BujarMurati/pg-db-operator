@@ -35,3 +35,6 @@ class DatabaseServer:
             logger.info("Attempting to create database '{name}'", name=name)
             statement = SQL("CREATE DATABASE {};").format(Identifier(name))
             await cursor.execute(statement)
+
+    async def create_user(self, name: str, password: str):
+        pass
