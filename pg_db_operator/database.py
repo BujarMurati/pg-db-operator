@@ -20,3 +20,8 @@ class DatabaseServer:
         async with self.connection() as conn:
             results = await conn.fetch("SELECT datname FROM pg_database WHERE datname = $1;", name)
             return len(results) > 0
+
+    async def user_exists(self, name: str) -> bool:
+        async with self.connection() as conn:
+            results = await conn.fetch("SELECT usename FROM pg_user WHERE usename = $1;", name)
+            return len(results) > 0
