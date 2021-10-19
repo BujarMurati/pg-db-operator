@@ -60,3 +60,9 @@ class DatabaseServer:
                 Identifier(name), Identifier(name)
             )
             await cursor.execute(statement)
+
+    async def update_user_password(self, name: str, password: str):
+        async with self.cursor() as cursor:
+            logger.info("Changing password for user '{name}'", name=name)
+            statement = SQL("ALTER USER {} WITH ENCRYPTED PASSWORD %s;").format(Identifier(name))
+            await cursor.execute(statement, (password,))

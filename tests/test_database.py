@@ -101,3 +101,13 @@ async def test_grant_privileges(db):
     await db.create_database(name)
     await db.grant_all_privileges(name)
     assert await db.user_has_all_privileges_on_database(name)
+
+
+@pytest.mark.asyncio
+async def test_change_password(db):
+    name = "new_database"
+    password = "test"
+    await db.create_user(name, password)
+    await db.update_user_password(name, password)
+    # afaik we would need a super user to actually assert that the password changed
+    # i.e. compare SELECT passwd FROM pg_shadow WHERE usename = 'test'; before and after
