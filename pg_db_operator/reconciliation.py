@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from typing import Optional
 import string
 import secrets
@@ -47,3 +48,21 @@ class DatabaseReconciler:
             await self.db.create_user(self.spec.name, self.spec.password)
         if not state.user_has_privileges:
             await self.db.grant_all_privileges(self.spec.name)
+
+
+@dataclass
+class PasswordRotationReconciler:
+    spec: DatabaseSpec
+    db: DatabaseServer
+
+    @logger.catch
+    async def reconcile(self, password_last_updated: Optional[str] = None):
+        if password_last_updated is None:
+            return
+        elif self.spec.password_rotation_interval is None:
+            return
+        else:
+            now = datetime.now()
+            threshold = now - timedelta(seconds=self.spec.password_rotation_interval)
+            if datetime.fromisoformat(password_last_updated) < threshold:
+                await self.db.update_user_password(self.spec.name, self.spec.password)
