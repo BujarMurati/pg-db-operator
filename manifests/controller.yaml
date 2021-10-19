@@ -16,4 +16,4 @@ spec:
   hooks:
     sync:
       webhook:
-        url: http://host.minikube.internal:3000/sync
+        url: http://host.minikube.internal:8000/sync
