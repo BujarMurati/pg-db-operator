@@ -27,18 +27,13 @@ spec:
                       type: string
                   required:
                     - name
-                # seconds between password rotations
-                passwordRotationInterval:
-                  type: integer
               required:
                 - name
                 - targetSecret
             status:
+              x-kubernetes-preserve-unknown-fields: true
               type: object
-              properties:
-                passwordLastUpdated:
-                  type: string
-                  format: date-time
+
       subresources:
         status: {}
 

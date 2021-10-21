@@ -1,7 +1,6 @@
 from typing import AsyncIterator
 from contextlib import asynccontextmanager
 from aiopg import Connection, connect, Cursor
-from loguru import logger
 from psycopg2.sql import SQL, Identifier
 
 
@@ -12,9 +11,6 @@ class DatabaseServer:
         try:
             async with connection.cursor() as cursor:
                 yield cursor
-        except Exception as e:
-            logger.exception(e)
-            raise e
         finally:
             await connection.close()
 
@@ -43,19 +39,16 @@ class DatabaseServer:
 
     async def create_database(self, name: str):
         async with self.cursor() as cursor:
-            logger.info("Creating database '{name}'", name=name)
             statement = SQL("CREATE DATABASE {};").format(Identifier(name))
             await cursor.execute(statement)
 
     async def create_user(self, name: str, password: str):
         async with self.cursor() as cursor:
-            logger.info("Creating user '{name}'", name=name)
             statement = SQL("CREATE USER {} WITH ENCRYPTED PASSWORD %s;").format(Identifier(name))
             await cursor.execute(statement, (password,))
 
     async def grant_all_privileges(self, name: str):
         async with self.cursor() as cursor:
-            logger.info("Granting all privileges on database '{name}' to user '{name}'", name=name)
             statement = SQL("GRANT ALL PRIVILEGES ON DATABASE {} TO {}").format(
                 Identifier(name), Identifier(name)
             )
@@ -63,6 +56,5 @@ class DatabaseServer:
 
     async def update_user_password(self, name: str, password: str):
         async with self.cursor() as cursor:
-            logger.info("Changing password for user '{name}'", name=name)
             statement = SQL("ALTER USER {} WITH ENCRYPTED PASSWORD %s;").format(Identifier(name))
             await cursor.execute(statement, (password,))

@@ -1,0 +1,10 @@
+profiles:
+  "":
+    deployments:
+      pg-db-operator:
+        deploymentConfigHash: 9237f75e16393f62a1b4b53728418ee2f7ba87d54722a27b394feef3346f2120
+        helmChartHash: 21108598828c1390d42a96cd3f6b8741e7cce28f421f69a7e5aafd9a6ace4635
+        helmReleaseRevision: "1"
+    lastContext:
+      namespace: operator
+      context: minikube

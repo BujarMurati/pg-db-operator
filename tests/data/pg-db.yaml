@@ -7,4 +7,3 @@ spec:
   targetSecret:
     name:
       secret-pg-db-test
-  passwordRotationInterval: 86400
