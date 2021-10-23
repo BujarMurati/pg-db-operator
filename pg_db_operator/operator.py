@@ -1,3 +1,4 @@
+import os
 import secrets
 import string
 from typing import Dict, Optional
@@ -13,10 +14,23 @@ load_dotenv()
 
 db = DatabaseServer()
 
+REQUIRED_IDLE_TIME_BEFORE_PASSWORD_ROTATION_INTERVAL = 60
+PASSWORD_ROTATION_INTERVAL_SECONDS = os.environ.get(
+    "PG_DB_OPERATOR_PASSWORD_ROTATION_INTERVAL_SECONDS"
+)
+try:
+    interval = float(PASSWORD_ROTATION_INTERVAL_SECONDS)
+except Exception:
+    print(
+        f"Environment variable PASSWORD_ROTATION_INTERVAL_SECONDS is either unset or not a number: {interval}"
+    )
+    interval = None
+
 secret_template = """
 apiVersion: v1
 metadata:
     name: {name}
+    annotations:
 data:
   PGUSER: {user}
   PGPASSWORD: {password}
@@ -98,3 +112,33 @@ async def delete(spec, namespace, logger, **_):
     api = client.CoreV1Api()
     api.delete_namespaced_secret(namespace=namespace, name=db_spec.target_secret.name)
     logger.info(f"deleted secret {db_spec.target_secret.name} from namespace {namespace}")
+
+
+if interval:
+    print(f"Running password rotations in {interval} second intervals")
+
+    @kopf.timer(
+        "postgresdatabases",
+        interval=interval,
+        sharp=True,
+        idle=REQUIRED_IDLE_TIME_BEFORE_PASSWORD_ROTATION_INTERVAL,
+    )
+    async def on_password_rotation(spec: Dict, namespace: str, logger, **_):
+        db_spec = PostgresDatabaseSpec(**spec)
+        password = await upsert_database_and_user(db_spec.name, logger)
+        if password is None:
+            password = _generate_password()
+            await db.update_user_password(db_spec.name, password)
+        api = client.CoreV1Api()
+        api.delete_namespaced_secret(namespace=namespace, name=db_spec.target_secret.name)
+        logger.info(f"deleted secret {db_spec.target_secret.name} from namespace {namespace}")
+        secret_dict = safe_load(
+            secret_template.format(
+                name=db_spec.target_secret.name,
+                user=_encode_secret_data(db_spec.user),
+                password=_encode_secret_data(password),
+                database=_encode_secret_data(db_spec.name),
+            )
+        )
+        api.create_namespaced_secret(namespace=namespace, body=secret_dict)
+        logger.info(f"recreated secret {db_spec.target_secret.name} in namespace {namespace}")
