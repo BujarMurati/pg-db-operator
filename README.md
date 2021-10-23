@@ -3,7 +3,7 @@
 This is a proof-of-concept of a simple Kubernetes operator that provisions a user and database in Postgres.
 
 ## But why?
-Imagine a multi tenancy scenario with a central platform team offering individual PostgreSQL databases to a multitude of consuming teams/services/projects whose application's run in Kubernetes.
+Imagine a multi tenancy scenario with a central platform team offering individual PostgreSQL databases to a multitude of consuming teams/services/projects whose applications run in Kubernetes.
 The idea would be that a team in need of a database can declare it with a simple manifest like this:
 ```yaml
 apiVersion: experimental.bujarmurati.com/v1
