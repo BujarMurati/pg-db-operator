@@ -5,5 +5,4 @@ metadata:
 spec:
   name: test_db
   targetSecret:
-    name:
-      secret-pg-db-test
+    name: secret-pg-db-test
