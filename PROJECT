@@ -4,4 +4,14 @@ layout:
 - go.kubebuilder.io/v3
 projectName: pg-db-operator
 repo: github.com/bujarmurati/pg-db-operator
+resources:
+- api:
+    crdVersion: v1beta1
+    namespaced: true
+  controller: true
+  domain: bujarmurati.com
+  group: db
+  kind: PostgresDatabase
+  path: github.com/bujarmurati/pg-db-operator/api/v1beta1
+  version: v1beta1
 version: "3"
