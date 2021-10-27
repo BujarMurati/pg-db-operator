@@ -1,0 +1,7 @@
+componentConfig: true
+domain: bujarmurati.com
+layout:
+- go.kubebuilder.io/v3
+projectName: pg-db-operator
+repo: github.com/bujarmurati/pg-db-operator
+version: "3"
