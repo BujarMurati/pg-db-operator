@@ -61,9 +61,22 @@ func (d DatabaseServer) CheckUserHasAllPrivileges(userName string, databaseName 
 	// https://www.postgresql.org/docs/current/functions-info.html#FUNCTIONS-INFO-ACCESS-TABLE
 	// Here we test for CREATE permissions, there does not seem to be an elegant way to
 	// verify that "ALL" privileges on a database were granted
-	query := "SELECT has_database_privilege($1, $2, 'CREATE')"
+	query := "SELECT has_database_privilege($1, $2, 'CREATE');"
 	err = d.ConnectionPool.QueryRow(context.Background(), query, userName, databaseName).Scan(&hasPrivileges)
 	return hasPrivileges, err
+}
+
+func (d DatabaseServer) EnsureUserHasAllPrivileges(userName string, databaseName string) (err error) {
+	var exists bool
+	exists, err = d.CheckUserHasAllPrivileges(userName, databaseName)
+	if err != nil || exists {
+		return err
+	}
+	sanitizedUserName := strings.Trim(pgx.Identifier{userName}.Sanitize(), "\"")
+	santizedDatabaseName := strings.Trim(pgx.Identifier{databaseName}.Sanitize(), "\"")
+	query := fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE %v TO %v;", santizedDatabaseName, sanitizedUserName)
+	_, err = d.ConnectionPool.Exec(context.Background(), query)
+	return err
 }
 
 //Accepts libpq environment variables https://www.postgresql.org/docs/9.4/libpq-envars.html

@@ -128,4 +128,38 @@ var _ = Describe("DatabaseServer", func() {
 			Expect(exists).To(BeTrue())
 		})
 	})
+	Describe("EnsureUserHasAllPrivileges", func() {
+		It("Grants all privileges on a database to a user if not yet granted", func() {
+			userName := "new_privileges"
+			databaseName := "new_privileges"
+			db, err := NewDatabaseServerFromEnvironment()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(db.CreateDatabaseIfNotExists(databaseName)).NotTo(HaveOccurred())
+			Expect(db.CreateUserOrUpdatePassword(userName, "test")).NotTo(HaveOccurred())
+
+			exists, err := db.CheckUserHasAllPrivileges(userName, databaseName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeFalse())
+
+			Expect(db.EnsureUserHasAllPrivileges(userName, databaseName)).NotTo(HaveOccurred())
+			exists, err = db.CheckUserHasAllPrivileges(userName, databaseName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeTrue())
+		})
+		It("Skips granting privileges that already exist", func() {
+			userName := "everything_exists"
+			databaseName := "everything_exists"
+			db, err := NewDatabaseServerFromEnvironment()
+			Expect(err).NotTo(HaveOccurred())
+			exists, err := db.CheckUserHasAllPrivileges(userName, databaseName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeTrue())
+
+			Expect(db.EnsureUserHasAllPrivileges(userName, databaseName)).NotTo(HaveOccurred())
+			exists, err = db.CheckUserHasAllPrivileges(userName, databaseName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeTrue())
+		})
+	})
 })

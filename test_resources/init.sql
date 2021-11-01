@@ -26,7 +26,7 @@ CREATE USER user_exists;
 
 
 /*
-* Setup for a test case in which both user and database exist but the user has no privileges on the database
+* Setup for test cases in which both user and database exist but the user has no privileges on the database
 */
 CREATE USER has_no_privileges;
 CREATE DATABASE has_no_privileges;
