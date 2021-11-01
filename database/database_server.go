@@ -79,6 +79,19 @@ func (d DatabaseServer) EnsureUserHasAllPrivileges(userName string, databaseName
 	return err
 }
 
+func (d DatabaseServer) EnsureDesiredState(userName string, databaseName string, password string) (err error) {
+	err = d.CreateDatabaseIfNotExists(databaseName)
+	if err != nil {
+		return err
+	}
+	err = d.CreateUserOrUpdatePassword(userName, password)
+	if err != nil {
+		return err
+	}
+	err = d.EnsureUserHasAllPrivileges(userName, databaseName)
+	return err
+}
+
 //Accepts libpq environment variables https://www.postgresql.org/docs/9.4/libpq-envars.html
 func NewDatabaseServerFromEnvironment() (db DatabaseServer, err error) {
 	config, err := pgxpool.ParseConfig(os.Getenv("PG_DB_OPERATOR_CONNECTION_STRING"))

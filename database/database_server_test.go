@@ -162,4 +162,27 @@ var _ = Describe("DatabaseServer", func() {
 			Expect(exists).To(BeTrue())
 		})
 	})
+	Describe("EnsureDesiredState", func() {
+		It("Creates database, user and privileges", func() {
+			userName := "desired_user"
+			databaseName := "desired_database"
+			password := "test"
+			db, err := NewDatabaseServerFromEnvironment()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(db.EnsureDesiredState(userName, databaseName, password))
+
+			exists, err := db.CheckDatabaseExists(databaseName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeTrue())
+
+			exists, err = db.CheckUserExists(userName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeTrue())
+
+			exists, err = db.CheckUserHasAllPrivileges(userName, databaseName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeTrue())
+		})
+	})
 })
