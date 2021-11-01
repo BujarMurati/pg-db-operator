@@ -24,6 +24,13 @@ CREATE DATABASE database_exists;
 */
 CREATE USER user_exists;
 
+
+/*
+* Setup for a test case in which both user and database exist but the user has no privileges on the database
+*/
+CREATE USER has_no_privileges;
+CREATE DATABASE has_no_privileges;
+
 /*
 * Setup for a test case in which both the database and user already exist but the
 * user has no privileges for the database

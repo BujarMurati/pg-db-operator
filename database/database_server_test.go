@@ -108,4 +108,24 @@ var _ = Describe("DatabaseServer", func() {
 			Expect(exists).To(BeTrue())
 		})
 	})
+	Describe("CheckUserHasAllPrivileges", func() {
+		It("Returns false if the user does not have all privileges on the database", func() {
+			userName := "has_no_privileges"
+			databaseName := "has_no_privileges"
+			db, err := NewDatabaseServerFromEnvironment()
+			Expect(err).NotTo(HaveOccurred())
+			exists, err := db.CheckUserHasAllPrivileges(userName, databaseName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeFalse())
+		})
+		It("Returns true if the user has all privileges on the database", func() {
+			userName := "everything_exists"
+			databaseName := "everything_exists"
+			db, err := NewDatabaseServerFromEnvironment()
+			Expect(err).NotTo(HaveOccurred())
+			exists, err := db.CheckUserHasAllPrivileges(userName, databaseName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeTrue())
+		})
+	})
 })
