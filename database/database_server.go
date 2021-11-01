@@ -79,7 +79,7 @@ func (d DatabaseServer) EnsureUserHasAllPrivileges(userName string, databaseName
 	return err
 }
 
-func (d DatabaseServer) EnsureDesiredState(userName string, databaseName string, password string) (err error) {
+func (d DatabaseServer) ReconcileDatabaseState(userName string, databaseName string, password string) (err error) {
 	err = d.CreateDatabaseIfNotExists(databaseName)
 	if err != nil {
 		return err

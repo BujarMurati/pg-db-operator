@@ -27,10 +27,15 @@ import (
 	dbv1beta1 "github.com/bujarmurati/pg-db-operator/api/v1beta1"
 )
 
+type DatabaseStateReconciler interface {
+	ReconcileDatabaseState(userName string, databaseName string, password string) (err error)
+}
+
 // PostgresDatabaseReconciler reconciles a PostgresDatabase object
 type PostgresDatabaseReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Database DatabaseStateReconciler
 }
 
 //+kubebuilder:rbac:groups=db.bujarmurati.com,resources=postgresdatabases,verbs=get;list;watch;create;update;patch;delete

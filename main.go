@@ -33,6 +33,7 @@ import (
 
 	dbv1beta1 "github.com/bujarmurati/pg-db-operator/api/v1beta1"
 	"github.com/bujarmurati/pg-db-operator/controllers"
+	"github.com/bujarmurati/pg-db-operator/database"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -78,9 +79,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	db, err := database.NewDatabaseServerFromEnvironment()
+	if err != nil {
+		setupLog.Error(err, "unable to connect to database server")
+		os.Exit(1)
+	}
+
 	if err = (&controllers.PostgresDatabaseReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Database: db,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PostgresDatabase")
 		os.Exit(1)

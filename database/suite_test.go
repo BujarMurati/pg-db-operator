@@ -16,8 +16,6 @@ import (
 
 var postgresContainer testcontainers.Container
 
-const postgresStartupTimeout = time.Second * 10
-
 func SetServerAdminCredentials(port string, host string) {
 	os.Setenv("PGPASSWORD", "test")
 	os.Setenv("PGUSER", "server_admin")
@@ -64,7 +62,6 @@ func TestDatabase(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	var postgresContainer testcontainers.Container
 	const postgresStartupTimeout = time.Second * 10
 
 	Eventually(func() error {

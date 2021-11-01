@@ -162,7 +162,7 @@ var _ = Describe("DatabaseServer", func() {
 			Expect(exists).To(BeTrue())
 		})
 	})
-	Describe("EnsureDesiredState", func() {
+	Describe("ReconcileDatabaseState", func() {
 		It("Creates database, user and privileges", func() {
 			userName := "desired_user"
 			databaseName := "desired_database"
@@ -170,7 +170,7 @@ var _ = Describe("DatabaseServer", func() {
 			db, err := NewDatabaseServerFromEnvironment()
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(db.EnsureDesiredState(userName, databaseName, password))
+			Expect(db.ReconcileDatabaseState(userName, databaseName, password))
 
 			exists, err := db.CheckDatabaseExists(databaseName)
 			Expect(err).NotTo(HaveOccurred())
