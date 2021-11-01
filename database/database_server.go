@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -26,8 +27,32 @@ func (d DatabaseServer) CreateDatabaseIfNotExists(databaseName string) (err erro
 	if err != nil || exists {
 		return err
 	}
-	sanitizedDatabaseName := pgx.Identifier{databaseName}.Sanitize() // for reference https://github.com/jackc/pgx/issues/498
-	query := fmt.Sprintf("CREATE DATABASE %s;", sanitizedDatabaseName)
+	sanitizedDatabaseName := strings.Trim(pgx.Identifier{databaseName}.Sanitize(), "\"") // for reference https://github.com/jackc/pgx/issues/498
+	query := fmt.Sprintf("CREATE DATABASE %v;", sanitizedDatabaseName)
+	_, err = d.ConnectionPool.Exec(context.Background(), query)
+	return err
+}
+
+func (d DatabaseServer) CheckUserExists(userName string) (exists bool, err error) {
+	query := "SELECT COUNT(usename) FROM pg_user WHERE usename = $1;"
+	var count int
+	err = d.ConnectionPool.QueryRow(context.Background(), query, userName).Scan(&count)
+	return count > 0, err
+}
+
+func (d DatabaseServer) CreateUserOrUpdatePassword(userName string, password string) (err error) {
+	var exists bool
+	exists, err = d.CheckUserExists(userName)
+	verb := "CREATE"
+	if err != nil {
+		return err
+	}
+	if exists {
+		verb = "ALTER"
+	}
+	sanitizedUserName := strings.Trim(pgx.Identifier{userName}.Sanitize(), "\"")
+	sanitizedPassword := "'" + strings.Trim(pgx.Identifier{password}.Sanitize(), "\"") + "'"
+	query := fmt.Sprintf("%v USER %v WITH ENCRYPTED PASSWORD %v;", verb, sanitizedUserName, sanitizedPassword)
 	_, err = d.ConnectionPool.Exec(context.Background(), query)
 	return err
 }

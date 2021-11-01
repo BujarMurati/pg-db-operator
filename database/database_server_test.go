@@ -60,4 +60,52 @@ var _ = Describe("DatabaseServer", func() {
 			Expect(exists).To(BeTrue())
 		})
 	})
+	Describe("CheckUserExists", func() {
+		It("Returns false if the user does not exist", func() {
+			userName := "user_does_not_exist"
+			db, err := NewDatabaseServerFromEnvironment()
+			Expect(err).NotTo(HaveOccurred())
+			exists, err := db.CheckUserExists(userName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeFalse())
+		})
+		It("Returns true if the user already does exist", func() {
+			userName := "user_exists"
+			db, err := NewDatabaseServerFromEnvironment()
+			Expect(err).NotTo(HaveOccurred())
+			exists, err := db.CheckUserExists(userName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeTrue())
+		})
+	})
+	Describe("CreateUserIfNotExists", func() {
+		It("Creates a new user if it doesn't exist", func() {
+			userName := "new_user"
+			password := "test"
+			db, err := NewDatabaseServerFromEnvironment()
+			Expect(err).NotTo(HaveOccurred())
+			exists, err := db.CheckUserExists(userName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeFalse())
+
+			Expect(db.CreateUserOrUpdatePassword(userName, password)).NotTo(HaveOccurred())
+			exists, err = db.CheckUserExists(userName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeTrue())
+		})
+		It("Skips creating a new database if it doesn't exist", func() {
+			userName := "user_exists"
+			password := "test"
+			db, err := NewDatabaseServerFromEnvironment()
+			Expect(err).NotTo(HaveOccurred())
+			exists, err := db.CheckUserExists(userName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeTrue())
+
+			Expect(db.CreateUserOrUpdatePassword(userName, password)).NotTo(HaveOccurred())
+			exists, err = db.CheckUserExists(userName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeTrue())
+		})
+	})
 })
