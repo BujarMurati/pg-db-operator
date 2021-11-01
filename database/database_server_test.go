@@ -40,7 +40,7 @@ func CreatePostgresContainer() (postgresContainer testcontainers.Container, err 
 	req := testcontainers.ContainerRequest{
 		Image:        "postgres:14",
 		ExposedPorts: []string{"5432/tcp"},
-		WaitingFor:   wait.ForListeningPort("5432/tcp"),
+		WaitingFor:   wait.ForAll(wait.ForListeningPort("5432/tcp"), wait.ForLog("init.sql")),
 		BindMounts:   map[string]string{mountFrom: mountTo},
 		Env: map[string]string{
 			"POSTGRES_PASSWORD": "postgres",
@@ -80,16 +80,70 @@ var _ = Describe("DatabaseServer", func() {
 		It("Can use libpq environment variables (a.k.a. PGHOST, etc.)", func() {
 			db, err := NewDatabaseServerFromEnvironment()
 			Expect(err).NotTo(HaveOccurred())
-			Eventually(func() error {
-				return db.ConnectionPool.Ping(context.Background())
-			}, postgresStartupTimeout).ShouldNot(HaveOccurred())
+			Expect(db.ConnectionPool.Ping(context.Background())).NotTo(HaveOccurred())
+		})
+	})
+	Describe("CheckDatabaseExists", func() {
+		It("Returns false if the database does not exist", func() {
+			db, err := NewDatabaseServerFromEnvironment()
+			Expect(err).NotTo(HaveOccurred())
+			exists, err := db.CheckDatabaseExists("database_does_not_exist")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeFalse())
+		})
+		It("Returns true if the database already does exist", func() {
+			db, err := NewDatabaseServerFromEnvironment()
+			Expect(err).NotTo(HaveOccurred())
+			exists, err := db.CheckDatabaseExists("database_exists")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeTrue())
+		})
+	})
+	Describe("CreateDatabaseIfNotExists", func() {
+		It("Creates a new database if it doesn't exist", func() {
+			databaseName := "new_database"
+			db, err := NewDatabaseServerFromEnvironment()
+			Expect(err).NotTo(HaveOccurred())
+			exists, err := db.CheckDatabaseExists(databaseName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeFalse())
+
+			Expect(db.CreateDatabaseIfNotExists(databaseName)).NotTo(HaveOccurred())
+			exists, err = db.CheckDatabaseExists(databaseName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeTrue())
+		})
+		It("Skips creating a new database if it doesn't exist", func() {
+			databaseName := "database_exists"
+			db, err := NewDatabaseServerFromEnvironment()
+			Expect(err).NotTo(HaveOccurred())
+			exists, err := db.CheckDatabaseExists(databaseName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeTrue())
+
+			Expect(db.CreateDatabaseIfNotExists(databaseName)).NotTo(HaveOccurred())
+			exists, err = db.CheckDatabaseExists(databaseName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeTrue())
 		})
 	})
 
 	AfterEach(func() {
 		unsetServerAdminCredentials()
 		if postgresContainer != nil {
-			postgresContainer.Terminate(context.Background())
+			defer postgresContainer.Terminate(context.Background())
+			var logs []byte
+			logReader, err := postgresContainer.Logs(context.Background())
+			if err != nil {
+				Fail("Failed to get log reader from postgres container")
+				return
+			}
+			_, err = logReader.Read(logs)
+			if err != nil {
+				Fail("Failed to read logs from postgres container")
+				return
+			}
+			GinkgoWriter.Write(logs)
 		}
 	})
 })

@@ -9,6 +9,7 @@ require (
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/imdario/mergo v0.3.11 // indirect
+	github.com/jackc/pgx v3.6.2+incompatible // indirect
 	github.com/jackc/pgx/v4 v4.13.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.16.0
