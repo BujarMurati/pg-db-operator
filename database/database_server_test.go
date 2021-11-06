@@ -1,21 +1,12 @@
 package database
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("DatabaseServer", func() {
 
-	Describe("NewDatabaseServerFromEnvironment", func() {
-		It("Can use libpq environment variables (a.k.a. PGHOST, etc.)", func() {
-			db, err := NewDatabaseServerFromEnvironment()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(db.ConnectionPool.Ping(context.Background())).NotTo(HaveOccurred())
-		})
-	})
 	Describe("CheckDatabaseExists", func() {
 		It("Returns false if the database does not exist", func() {
 			db, err := NewDatabaseServerFromEnvironment()

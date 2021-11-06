@@ -78,6 +78,12 @@ var _ = BeforeSuite(func() {
 		Fail("Failed to get container host")
 	}
 	SetServerAdminCredentials(mappedPort.Port(), ip)
+
+	Eventually(func() error {
+		db, err := NewDatabaseServerFromEnvironment()
+		Expect(err).NotTo(HaveOccurred())
+		return db.ConnectionPool.Ping(context.Background())
+	}).Should(Succeed())
 })
 
 var _ = AfterSuite(func() {
