@@ -2,10 +2,12 @@ package controllers
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -19,13 +21,29 @@ var _ = Describe("PostgresDatabase controller", func() {
 		PostgresDatabaseName = "db"
 		DatabaseName         = "db"
 		SecretName           = "secret-db"
-
-		timeout  = time.Second * 10
-		duration = time.Second * 10
-		interval = time.Millisecond * 250
+		timeout              = time.Second * 10
+		duration             = time.Second * 10
+		interval             = time.Millisecond * 250
 	)
+	var PostgresDatabaseNamespace string
+	BeforeEach(func() {
+		currentTest := CurrentGinkgoTestDescription().TestText
+		PostgresDatabaseNamespace = strings.ReplaceAll(strings.ToLower(currentTest), " ", "-")
+		namespace := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: PostgresDatabaseNamespace,
+			},
+		}
+		_, err := clientset.CoreV1().Namespaces().Create(context.Background(), namespace, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+	})
+	AfterEach(func() {
+		if !SkipNamespaceCleanup {
+			Expect(clientset.CoreV1().Namespaces().Delete(context.Background(), PostgresDatabaseNamespace, metav1.DeleteOptions{})).NotTo(HaveOccurred())
+		}
+	})
 
-	Context("When updating a PostgresDatabase", func() {
+	Context("When creating a PostgresDatabase", func() {
 		It("Should update the secret", func() {
 			ctx := context.Background()
 			postgresDatabase := &dbv1beta1.PostgresDatabase{
@@ -38,7 +56,7 @@ var _ = Describe("PostgresDatabase controller", func() {
 					Namespace: PostgresDatabaseNamespace,
 				},
 				Spec: dbv1beta1.PostgresDatabaseSpec{
-					DatabaseName: "1 * * * *",
+					DatabaseName: "db_" + PostgresDatabaseNamespace,
 				},
 			}
 			Expect(k8sClient.Create(ctx, postgresDatabase)).Should(Succeed())

@@ -49,14 +49,17 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	cfg               *rest.Config
-	k8sClient         client.Client
-	testEnv           *envtest.Environment
-	postgresContainer testcontainers.Container
-	clientset         *kubernetes.Clientset
+	cfg                  *rest.Config
+	k8sClient            client.Client
+	testEnv              *envtest.Environment
+	postgresContainer    testcontainers.Container
+	clientset            *kubernetes.Clientset
+	SkipNamespaceCleanup bool
 )
 
-const PostgresDatabaseNamespace = "testing"
+// For debugging purposes you can set SKIP_NAMESPACE_CLEANUP
+// in order to be able to inspect cluster state after a test run
+const OperatorNamespace = "testing"
 
 func SetServerAdminCredentials(port string, host string) {
 	os.Setenv("PGPASSWORD", "test")
@@ -125,11 +128,13 @@ var _ = BeforeSuite(func() {
 	By("Creating a testing namespace")
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: PostgresDatabaseNamespace,
+			Name: OperatorNamespace,
 		},
 	}
 	_, err = clientset.CoreV1().Namespaces().Create(context.Background(), namespace, metav1.CreateOptions{})
 	Expect(err).NotTo(HaveOccurred())
+
+	_, SkipNamespaceCleanup = os.LookupEnv("SKIP_NAMESPACE_CLEANUP")
 
 	By("Setting up an external database server")
 	Eventually(func() error {
@@ -206,6 +211,8 @@ var _ = AfterSuite(func() {
 		}
 		GinkgoWriter.Write(logs)
 	}
-	By("deleting the testing namespace")
-	Expect(clientset.CoreV1().Namespaces().Delete(context.Background(), PostgresDatabaseNamespace, metav1.DeleteOptions{})).NotTo(HaveOccurred())
+	if !SkipNamespaceCleanup {
+		By("deleting the testing namespace")
+		Expect(clientset.CoreV1().Namespaces().Delete(context.Background(), OperatorNamespace, metav1.DeleteOptions{})).NotTo(HaveOccurred())
+	}
 })

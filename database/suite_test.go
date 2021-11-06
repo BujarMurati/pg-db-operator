@@ -83,7 +83,7 @@ var _ = BeforeSuite(func() {
 		db, err := NewDatabaseServerFromEnvironment()
 		Expect(err).NotTo(HaveOccurred())
 		return db.ConnectionPool.Ping(context.Background())
-	}).Should(Succeed())
+	}, postgresStartupTimeout).Should(Succeed())
 })
 
 var _ = AfterSuite(func() {
