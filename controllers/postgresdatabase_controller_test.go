@@ -16,10 +16,9 @@ var _ = Describe("PostgresDatabase controller", func() {
 
 	// Define utility constants for object names and testing timeouts/durations and intervals.
 	const (
-		PostgresDatabaseName      = "db"
-		PostgresDatabaseNamespace = "default"
-		DatabaseName              = "db"
-		SecretName                = "secret-db"
+		PostgresDatabaseName = "db"
+		DatabaseName         = "db"
+		SecretName           = "secret-db"
 
 		timeout  = time.Second * 10
 		duration = time.Second * 10

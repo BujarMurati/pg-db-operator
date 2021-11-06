@@ -25,30 +25,38 @@ import (
 	"testing"
 	"time"
 
+	dbv1beta1 "github.com/bujarmurati/pg-db-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	dbv1beta1 "github.com/bujarmurati/pg-db-operator/api/v1beta1"
 	//+kubebuilder:scaffold:imports
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var cfg *rest.Config
-var k8sClient client.Client
-var testEnv *envtest.Environment
-var postgresContainer testcontainers.Container
+var (
+	cfg               *rest.Config
+	k8sClient         client.Client
+	testEnv           *envtest.Environment
+	postgresContainer testcontainers.Container
+	clientset         *kubernetes.Clientset
+)
+
+const PostgresDatabaseNamespace = "testing"
 
 func SetServerAdminCredentials(port string, host string) {
 	os.Setenv("PGPASSWORD", "test")
@@ -64,6 +72,12 @@ func UnsetServerAdminCredentials() {
 	os.Unsetenv("PGHOST")
 	os.Unsetenv("PGPORT")
 	os.Unsetenv("PGDATABASE")
+}
+
+func LoadDefaultKubeConfig() (config *rest.Config, err error) {
+	kubeconfigPath := clientcmd.NewDefaultPathOptions().GetDefaultFilename()
+	config, err = clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+	return config, err
 }
 
 func CreatePostgresContainer() (postgresContainer testcontainers.Container, err error) {
@@ -102,6 +116,22 @@ func TestAPIs(t *testing.T) {
 var _ = BeforeSuite(func() {
 	const postgresStartupTimeout = time.Second * 10
 
+	By("Connecting to a local K3S cluster")
+	Expect(os.Setenv("USE_EXISTING_CLUSTER", "true")).To(Succeed())
+	config, err := LoadDefaultKubeConfig()
+	Expect(err).NotTo(HaveOccurred())
+	clientset = kubernetes.NewForConfigOrDie(config)
+
+	By("Creating a testing namespace")
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: PostgresDatabaseNamespace,
+		},
+	}
+	_, err = clientset.CoreV1().Namespaces().Create(context.Background(), namespace, metav1.CreateOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	By("Setting up an external database server")
 	Eventually(func() error {
 		var err error
 		postgresContainer, err = CreatePostgresContainer()
@@ -118,7 +148,7 @@ var _ = BeforeSuite(func() {
 	SetServerAdminCredentials(mappedPort.Port(), ip)
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
-	By("bootstrapping test environment")
+	By("bootstrapping envtest")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
@@ -159,6 +189,7 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 
+	By("tearing down the external database server")
 	UnsetServerAdminCredentials()
 	if postgresContainer != nil {
 		defer postgresContainer.Terminate(context.Background())
@@ -175,4 +206,6 @@ var _ = AfterSuite(func() {
 		}
 		GinkgoWriter.Write(logs)
 	}
+	By("deleting the testing namespace")
+	Expect(clientset.CoreV1().Namespaces().Delete(context.Background(), PostgresDatabaseNamespace, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 })
