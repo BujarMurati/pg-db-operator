@@ -42,7 +42,7 @@ func CreatePostgresContainer() (postgresContainer testcontainers.Container, err 
 	req := testcontainers.ContainerRequest{
 		Image:        "postgres:14",
 		ExposedPorts: []string{"5432/tcp"},
-		WaitingFor:   wait.ForAll(wait.ForListeningPort("5432/tcp"), wait.ForLog("init.sql")),
+		WaitingFor:   wait.ForAll(wait.ForListeningPort("5432/tcp"), wait.ForLog("ready to accept connections").WithOccurrence(2)),
 		BindMounts:   map[string]string{mountFrom: mountTo},
 		Env: map[string]string{
 			"POSTGRES_PASSWORD": "postgres",

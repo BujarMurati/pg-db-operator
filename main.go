@@ -20,6 +20,8 @@ import (
 	"flag"
 	"os"
 
+	"github.com/sethvargo/go-password/password"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -84,11 +86,16 @@ func main() {
 		setupLog.Error(err, "unable to connect to database server")
 		os.Exit(1)
 	}
-
+	generator, err := password.NewGenerator(nil)
+	if err != nil {
+		setupLog.Error(err, "unable to create password generator")
+		os.Exit(1)
+	}
 	if err = (&controllers.PostgresDatabaseReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Database: db,
+		Client:            mgr.GetClient(),
+		Scheme:            mgr.GetScheme(),
+		Database:          db,
+		PasswordGenerator: generator,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PostgresDatabase")
 		os.Exit(1)

@@ -8,6 +8,7 @@ require (
 	github.com/jackc/pgx/v4 v4.13.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.16.0
+	github.com/sethvargo/go-password v0.2.0 // indirect
 	github.com/testcontainers/testcontainers-go v0.11.1
 	k8s.io/api v0.20.2
 	k8s.io/apimachinery v0.20.2

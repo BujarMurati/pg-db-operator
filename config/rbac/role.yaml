@@ -7,6 +7,24 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - corev1
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - corev1
+  resources:
+  - secrets/status
+  verbs:
+  - get
+- apiGroups:
   - db.bujarmurati.com
   resources:
   - postgresdatabases

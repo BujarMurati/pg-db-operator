@@ -25,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sethvargo/go-password/password"
+
 	dbv1beta1 "github.com/bujarmurati/pg-db-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -59,7 +61,10 @@ var (
 
 // For debugging purposes you can set SKIP_NAMESPACE_CLEANUP
 // in order to be able to inspect cluster state after a test run
-const OperatorNamespace = "testing"
+const (
+	OperatorNamespace = "testing"
+	ExpectedPassword  = "password"
+)
 
 func SetServerAdminCredentials(port string, host string) {
 	os.Setenv("PGPASSWORD", "test")
@@ -93,7 +98,7 @@ func CreatePostgresContainer() (postgresContainer testcontainers.Container, err 
 	req := testcontainers.ContainerRequest{
 		Image:        "postgres:14",
 		ExposedPorts: []string{"5432/tcp"},
-		WaitingFor:   wait.ForAll(wait.ForListeningPort("5432/tcp"), wait.ForLog("init.sql")),
+		WaitingFor:   wait.ForAll(wait.ForListeningPort("5432/tcp"), wait.ForLog("ready to accept connections").WithOccurrence(2)),
 		BindMounts:   map[string]string{mountFrom: mountTo},
 		Env: map[string]string{
 			"POSTGRES_PASSWORD": "postgres",
@@ -177,8 +182,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&PostgresDatabaseReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(),
+		Client:            k8sManager.GetClient(),
+		Scheme:            k8sManager.GetScheme(),
+		PasswordGenerator: password.NewMockGenerator(ExpectedPassword, nil),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -191,8 +197,10 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
-	err := testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
+	if testEnv != nil {
+		err := testEnv.Stop()
+		Expect(err).NotTo(HaveOccurred())
+	}
 
 	By("tearing down the external database server")
 	UnsetServerAdminCredentials()

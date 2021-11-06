@@ -18,13 +18,18 @@ package controllers
 
 import (
 	"context"
+	"encoding/base64"
 
+	"github.com/sethvargo/go-password/password"
+
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	dbv1beta1 "github.com/bujarmurati/pg-db-operator/api/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type DatabaseStateReconciler interface {
@@ -34,27 +39,56 @@ type DatabaseStateReconciler interface {
 // PostgresDatabaseReconciler reconciles a PostgresDatabase object
 type PostgresDatabaseReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Database DatabaseStateReconciler
+	Scheme            *runtime.Scheme
+	Database          DatabaseStateReconciler
+	PasswordGenerator password.PasswordGenerator
+}
+
+func b64decode(b []byte) (result string, err error) {
+	decoded, err := base64.StdEncoding.DecodeString(string(b))
+	return string(decoded), err
+}
+
+func b64encode(s string) []byte {
+	src := []byte(s)
+	encoded := base64.StdEncoding.EncodeToString(src)
+	return []byte(encoded)
 }
 
 //+kubebuilder:rbac:groups=db.bujarmurati.com,resources=postgresdatabases,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=db.bujarmurati.com,resources=postgresdatabases/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=db.bujarmurati.com,resources=postgresdatabases/finalizers,verbs=update
+//+kubebuilder:rbac:groups=corev1,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=corev1,resources=secrets/status,verbs=get
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the PostgresDatabase object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
 func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	log := log.FromContext(ctx)
 
-	// your logic here
+	var postgresDatabase dbv1beta1.PostgresDatabase
+	if err := r.Get(ctx, req.NamespacedName, &postgresDatabase); err != nil {
+		log.Error(err, "unable to fetch PostgresDatabase")
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+	// TODO: configurable password policy
+	password, err := r.PasswordGenerator.Generate(30, 5, 5, false, false)
+	if err != nil {
+		return ctrl.Result{Requeue: true}, err
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      postgresDatabase.Spec.SecretName,
+			Namespace: postgresDatabase.Namespace,
+		},
+		Data: map[string][]byte{
+			"PGPASSWORD": b64encode(password),
+		},
+	}
+	err = r.Create(ctx, secret)
+	if err != nil {
+		log.Error(err, "unable to create Secret")
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }

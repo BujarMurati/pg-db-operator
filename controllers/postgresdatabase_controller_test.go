@@ -44,31 +44,43 @@ var _ = Describe("PostgresDatabase controller", func() {
 	})
 
 	Context("When creating a PostgresDatabase", func() {
-		It("Should update the secret", func() {
-			ctx := context.Background()
-			postgresDatabase := &dbv1beta1.PostgresDatabase{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "db.bujarmurati.com/v1beta1",
-					Kind:       "PostgresDatabase",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      PostgresDatabaseName,
-					Namespace: PostgresDatabaseNamespace,
-				},
-				Spec: dbv1beta1.PostgresDatabaseSpec{
-					DatabaseName: "db_" + PostgresDatabaseNamespace,
-				},
-			}
-			Expect(k8sClient.Create(ctx, postgresDatabase)).Should(Succeed())
-			pgdbLookupKey := types.NamespacedName{Name: PostgresDatabaseName, Namespace: PostgresDatabaseNamespace}
-			createdPostgresDatabase := &dbv1beta1.PostgresDatabase{}
+		Context("and no matching secret exists", func() {
+			It("Should create a new secret", func() {
+				ctx := context.Background()
+				postgresDatabase := &dbv1beta1.PostgresDatabase{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "db.bujarmurati.com/v1beta1",
+						Kind:       "PostgresDatabase",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      PostgresDatabaseName,
+						Namespace: PostgresDatabaseNamespace,
+					},
+					Spec: dbv1beta1.PostgresDatabaseSpec{
+						DatabaseName: "db-" + PostgresDatabaseNamespace,
+						SecretName:   "secret-" + PostgresDatabaseNamespace,
+					},
+				}
+				Expect(k8sClient.Create(ctx, postgresDatabase)).Should(Succeed())
+				pgdbLookupKey := types.NamespacedName{Name: PostgresDatabaseName, Namespace: PostgresDatabaseNamespace}
+				createdPostgresDatabase := &dbv1beta1.PostgresDatabase{}
 
-			// We'll need to retry getting this newly created CronJob, given that creation may not immediately happen.
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, pgdbLookupKey, createdPostgresDatabase)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, pgdbLookupKey, createdPostgresDatabase)
+					return err == nil
+				}, timeout, interval).Should(BeTrue())
+				var createdSecret *corev1.Secret
+				Eventually(func() (err error) {
+					createdSecret, err = clientset.CoreV1().Secrets(PostgresDatabaseNamespace).Get(context.Background(), postgresDatabase.Spec.SecretName, metav1.GetOptions{})
+					return err
+				}).Should(Succeed())
+				Expect(createdSecret.Data).Should(HaveKey("PGPASSWORD"))
+				actualPassword, err := b64decode(createdSecret.Data["PGPASSWORD"])
+				Expect(err).NotTo(HaveOccurred())
+				Expect(actualPassword).To(Equal(ExpectedPassword))
+			})
 		})
+
 	})
 
 })
