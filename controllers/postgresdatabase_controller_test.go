@@ -16,6 +16,13 @@ import (
 	dbv1beta1 "github.com/bujarmurati/pg-db-operator/api/v1beta1"
 )
 
+func assertDatumInSecret(key, value string, data map[string][]byte) {
+	Expect(data).Should(HaveKey(key))
+	actualValue, err := b64decode(data[key])
+	Expect(err).NotTo(HaveOccurred())
+	Expect(actualValue).To(Equal(value))
+}
+
 var _ = Describe("PostgresDatabase controller", func() {
 
 	// Define utility constants for object names and testing timeouts/durations and intervals.
@@ -74,36 +81,19 @@ var _ = Describe("PostgresDatabase controller", func() {
 					err := k8sClient.Get(ctx, pgdbLookupKey, createdPostgresDatabase)
 					return err == nil
 				}, timeout, interval).Should(BeTrue())
-				By("Creating a new secret")
+				By("Creating a new opaque secret")
 				var createdSecret *corev1.Secret
 				Eventually(func() (err error) {
 					createdSecret, err = clientset.CoreV1().Secrets(PostgresDatabaseNamespace).Get(context.Background(), postgresDatabase.Spec.SecretName, metav1.GetOptions{})
 					return err
 				}).Should(Succeed())
+				Expect(string(createdSecret.Type)).To(Equal("Opaque"))
 
-				By("Creating the secret with a generated PGPASSWORD")
-				Expect(createdSecret.Data).Should(HaveKey("PGPASSWORD"))
-				actualPassword, err := b64decode(createdSecret.Data["PGPASSWORD"])
-				Expect(err).NotTo(HaveOccurred())
-				Expect(actualPassword).To(Equal(ExpectedPassword))
-
-				By("Creating the secret with the correct PGUSER")
-				Expect(createdSecret.Data).Should(HaveKey("PGUSER"))
-				actualUser, err := b64decode(createdSecret.Data["PGUSER"])
-				Expect(err).NotTo(HaveOccurred())
-				Expect(actualUser).To(Equal(postgresDatabase.Spec.DatabaseName + postgresDatabase.Spec.UserNamePostFix))
-
-				By("Creating the secret with the correct PGHOST")
-				Expect(createdSecret.Data).Should(HaveKey("PGHOST"))
-				actualHost, err := b64decode(createdSecret.Data["PGHOST"])
-				Expect(err).NotTo(HaveOccurred())
-				Expect(actualHost).To(Equal(connConfig.Host))
-
-				By("Creating the secret with the correct PGPORT")
-				Expect(createdSecret.Data).Should(HaveKey("PGPORT"))
-				actualPort, err := b64decode(createdSecret.Data["PGPORT"])
-				Expect(err).NotTo(HaveOccurred())
-				Expect(actualPort).To(Equal(fmt.Sprint(connConfig.Port)))
+				By("Creating the secret with a correct data")
+				assertDatumInSecret("PGPASSWORD", ExpectedPassword, createdSecret.Data)
+				assertDatumInSecret("PGUSER", postgresDatabase.Spec.DatabaseName+postgresDatabase.Spec.UserNamePostFix, createdSecret.Data)
+				assertDatumInSecret("PGHOST", connConfig.Host, createdSecret.Data)
+				assertDatumInSecret("PGPORT", fmt.Sprint(connConfig.Port), createdSecret.Data)
 
 				By("Setting an OwnerReference on the secret")
 				expectedOwnerReference := metav1.NewControllerRef(createdPostgresDatabase, gvk)
