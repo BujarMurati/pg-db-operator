@@ -25,11 +25,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sethvargo/go-password/password"
-
 	dbv1beta1 "github.com/bujarmurati/pg-db-operator/api/v1beta1"
+	"github.com/bujarmurati/pg-db-operator/database"
+	"github.com/jackc/pgconn"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/sethvargo/go-password/password"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	corev1 "k8s.io/api/core/v1"
@@ -56,7 +57,8 @@ var (
 	testEnv              *envtest.Environment
 	postgresContainer    testcontainers.Container
 	clientset            *kubernetes.Clientset
-	SkipNamespaceCleanup bool
+	skipNamespaceCleanup bool
+	connConfig           *pgconn.Config
 )
 
 // For debugging purposes you can set SKIP_NAMESPACE_CLEANUP
@@ -139,7 +141,7 @@ var _ = BeforeSuite(func() {
 	_, err = clientset.CoreV1().Namespaces().Create(context.Background(), namespace, metav1.CreateOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
-	_, SkipNamespaceCleanup = os.LookupEnv("SKIP_NAMESPACE_CLEANUP")
+	_, skipNamespaceCleanup = os.LookupEnv("SKIP_NAMESPACE_CLEANUP")
 
 	By("Setting up an external database server")
 	Eventually(func() error {
@@ -156,6 +158,14 @@ var _ = BeforeSuite(func() {
 		Fail("Failed to get container host")
 	}
 	SetServerAdminCredentials(mappedPort.Port(), ip)
+	var db database.DatabaseServer
+	Eventually(func() error {
+		db, err = database.NewDatabaseServerFromEnvironment()
+		Expect(err).NotTo(HaveOccurred())
+		return db.ConnectionPool.Ping(context.Background())
+	}, postgresStartupTimeout).Should(Succeed())
+	connConfig = db.GetConfig()
+
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	By("bootstrapping envtest")
@@ -185,6 +195,7 @@ var _ = BeforeSuite(func() {
 		Client:            k8sManager.GetClient(),
 		Scheme:            k8sManager.GetScheme(),
 		PasswordGenerator: password.NewMockGenerator(ExpectedPassword, nil),
+		Database:          db,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -219,7 +230,7 @@ var _ = AfterSuite(func() {
 		}
 		GinkgoWriter.Write(logs)
 	}
-	if !SkipNamespaceCleanup {
+	if !skipNamespaceCleanup {
 		By("deleting the testing namespace")
 		Expect(clientset.CoreV1().Namespaces().Delete(context.Background(), OperatorNamespace, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 	}

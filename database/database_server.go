@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -38,6 +39,10 @@ func (d DatabaseServer) CheckUserExists(userName string) (exists bool, err error
 	var count int
 	err = d.ConnectionPool.QueryRow(context.Background(), query, userName).Scan(&count)
 	return count > 0, err
+}
+
+func (d DatabaseServer) GetConfig() (config *pgconn.Config) {
+	return d.ConnectionPool.Config().ConnConfig.Config.Copy()
 }
 
 func (d DatabaseServer) CreateUserOrUpdatePassword(userName string, password string) (err error) {

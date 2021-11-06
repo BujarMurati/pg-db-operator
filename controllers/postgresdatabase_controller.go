@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"reflect"
 
+	"github.com/jackc/pgconn"
 	"github.com/sethvargo/go-password/password"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,6 +36,7 @@ import (
 )
 
 type DatabaseStateReconciler interface {
+	GetConfig() (config *pgconn.Config)
 	ReconcileDatabaseState(userName string, databaseName string, password string) (err error)
 }
 
@@ -78,7 +80,7 @@ func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
-
+	config := r.Database.GetConfig()
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      postgresDatabase.Spec.SecretName,
@@ -86,6 +88,7 @@ func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		},
 		Data: map[string][]byte{
 			"PGPASSWORD": b64encode(password),
+			"PGHOST":     b64encode(config.Host),
 		},
 	}
 	ownerRef := metav1.NewControllerRef(&postgresDatabase, gvk)

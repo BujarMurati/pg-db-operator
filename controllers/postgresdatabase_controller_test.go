@@ -41,7 +41,7 @@ var _ = Describe("PostgresDatabase controller", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 	AfterEach(func() {
-		if !SkipNamespaceCleanup {
+		if !skipNamespaceCleanup {
 			Expect(clientset.CoreV1().Namespaces().Delete(context.Background(), PostgresDatabaseNamespace, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 		}
 	})
@@ -85,9 +85,16 @@ var _ = Describe("PostgresDatabase controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(actualPassword).To(Equal(ExpectedPassword))
 
+				By("Creating the secret with the correct PGHOST")
+				Expect(createdSecret.Data).Should(HaveKey("PGHOST"))
+				actualHost, err := b64decode(createdSecret.Data["PGHOST"])
+				Expect(err).NotTo(HaveOccurred())
+				Expect(actualHost).To(Equal(connConfig.Host))
+
 				By("Setting an OwnerReference on the secret")
 				expectedOwnerReference := metav1.NewControllerRef(createdPostgresDatabase, gvk)
 				Expect(createdSecret.ObjectMeta.OwnerReferences).To(ContainElement(*expectedOwnerReference))
+
 			})
 		})
 
