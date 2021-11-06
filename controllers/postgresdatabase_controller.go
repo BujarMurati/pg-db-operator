@@ -91,6 +91,7 @@ func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			"PGPASSWORD": b64encode(password),
 			"PGHOST":     b64encode(config.Host),
 			"PGPORT":     b64encode(fmt.Sprint(config.Port)),
+			"PGUSER":     b64encode(postgresDatabase.Spec.DatabaseName + postgresDatabase.Spec.UserNamePostFix),
 		},
 	}
 	ownerRef := metav1.NewControllerRef(&postgresDatabase, gvk)

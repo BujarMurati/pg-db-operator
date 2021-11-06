@@ -87,6 +87,12 @@ var _ = Describe("PostgresDatabase controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(actualPassword).To(Equal(ExpectedPassword))
 
+				By("Creating the secret with the correct PGUSER")
+				Expect(createdSecret.Data).Should(HaveKey("PGUSER"))
+				actualUser, err := b64decode(createdSecret.Data["PGUSER"])
+				Expect(err).NotTo(HaveOccurred())
+				Expect(actualUser).To(Equal(postgresDatabase.Spec.DatabaseName + postgresDatabase.Spec.UserNamePostFix))
+
 				By("Creating the secret with the correct PGHOST")
 				Expect(createdSecret.Data).Should(HaveKey("PGHOST"))
 				actualHost, err := b64decode(createdSecret.Data["PGHOST"])
