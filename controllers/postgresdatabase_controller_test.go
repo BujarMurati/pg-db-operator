@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -60,8 +61,9 @@ var _ = Describe("PostgresDatabase controller", func() {
 						Namespace: PostgresDatabaseNamespace,
 					},
 					Spec: dbv1beta1.PostgresDatabaseSpec{
-						DatabaseName: "db-" + PostgresDatabaseNamespace,
-						SecretName:   "secret-" + PostgresDatabaseNamespace,
+						DatabaseName:    "db-" + PostgresDatabaseNamespace,
+						SecretName:      "secret-" + PostgresDatabaseNamespace,
+						UserNamePostFix: "@" + connConfig.Host,
 					},
 				}
 				Expect(k8sClient.Create(ctx, postgresDatabase)).Should(Succeed())
@@ -90,6 +92,12 @@ var _ = Describe("PostgresDatabase controller", func() {
 				actualHost, err := b64decode(createdSecret.Data["PGHOST"])
 				Expect(err).NotTo(HaveOccurred())
 				Expect(actualHost).To(Equal(connConfig.Host))
+
+				By("Creating the secret with the correct PGPORT")
+				Expect(createdSecret.Data).Should(HaveKey("PGPORT"))
+				actualPort, err := b64decode(createdSecret.Data["PGPORT"])
+				Expect(err).NotTo(HaveOccurred())
+				Expect(actualPort).To(Equal(fmt.Sprint(connConfig.Port)))
 
 				By("Setting an OwnerReference on the secret")
 				expectedOwnerReference := metav1.NewControllerRef(createdPostgresDatabase, gvk)

@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"reflect"
 
 	"github.com/jackc/pgconn"
@@ -89,6 +90,7 @@ func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		Data: map[string][]byte{
 			"PGPASSWORD": b64encode(password),
 			"PGHOST":     b64encode(config.Host),
+			"PGPORT":     b64encode(fmt.Sprint(config.Port)),
 		},
 	}
 	ownerRef := metav1.NewControllerRef(&postgresDatabase, gvk)
