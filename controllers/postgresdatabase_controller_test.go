@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"time"
 
@@ -25,6 +26,8 @@ var _ = Describe("PostgresDatabase controller", func() {
 		duration             = time.Second * 10
 		interval             = time.Millisecond * 250
 	)
+	kind := reflect.TypeOf(dbv1beta1.PostgresDatabase{}).Name()
+	gvk := dbv1beta1.GroupVersion.WithKind(kind)
 	var PostgresDatabaseNamespace string
 	BeforeEach(func() {
 		currentTest := CurrentGinkgoTestDescription().TestText
@@ -69,15 +72,22 @@ var _ = Describe("PostgresDatabase controller", func() {
 					err := k8sClient.Get(ctx, pgdbLookupKey, createdPostgresDatabase)
 					return err == nil
 				}, timeout, interval).Should(BeTrue())
+				By("Creating a new secret")
 				var createdSecret *corev1.Secret
 				Eventually(func() (err error) {
 					createdSecret, err = clientset.CoreV1().Secrets(PostgresDatabaseNamespace).Get(context.Background(), postgresDatabase.Spec.SecretName, metav1.GetOptions{})
 					return err
 				}).Should(Succeed())
+
+				By("Creating the secret with a generated PGPASSWORD")
 				Expect(createdSecret.Data).Should(HaveKey("PGPASSWORD"))
 				actualPassword, err := b64decode(createdSecret.Data["PGPASSWORD"])
 				Expect(err).NotTo(HaveOccurred())
 				Expect(actualPassword).To(Equal(ExpectedPassword))
+
+				By("Setting an OwnerReference on the secret")
+				expectedOwnerReference := metav1.NewControllerRef(createdPostgresDatabase, gvk)
+				Expect(createdSecret.ObjectMeta.OwnerReferences).To(ContainElement(*expectedOwnerReference))
 			})
 		})
 

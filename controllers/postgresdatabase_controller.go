@@ -19,11 +19,13 @@ package controllers
 import (
 	"context"
 	"encoding/base64"
+	"reflect"
 
 	"github.com/sethvargo/go-password/password"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -55,6 +57,8 @@ func b64encode(s string) []byte {
 	return []byte(encoded)
 }
 
+var gvk schema.GroupVersionKind = dbv1beta1.GroupVersion.WithKind(reflect.TypeOf(dbv1beta1.PostgresDatabase{}).Name())
+
 //+kubebuilder:rbac:groups=db.bujarmurati.com,resources=postgresdatabases,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=db.bujarmurati.com,resources=postgresdatabases/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=db.bujarmurati.com,resources=postgresdatabases/finalizers,verbs=update
@@ -84,6 +88,8 @@ func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			"PGPASSWORD": b64encode(password),
 		},
 	}
+	ownerRef := metav1.NewControllerRef(&postgresDatabase, gvk)
+	secret.SetOwnerReferences([]metav1.OwnerReference{*ownerRef})
 	err = r.Create(ctx, secret)
 	if err != nil {
 		log.Error(err, "unable to create Secret")
