@@ -164,7 +164,7 @@ var _ = BeforeSuite(func() {
 		Expect(err).NotTo(HaveOccurred())
 		return db.ConnectionPool.Ping(context.Background())
 	}, postgresStartupTimeout).Should(Succeed())
-	connConfig = db.GetConfig()
+	connConfig = &db.GetConfig().Config
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 

@@ -6,8 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jackc/pgconn"
-	"github.com/jackc/pgx"
+	pgx "github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -41,8 +40,10 @@ func (d DatabaseServer) CheckUserExists(userName string) (exists bool, err error
 	return count > 0, err
 }
 
-func (d DatabaseServer) GetConfig() (config *pgconn.Config) {
-	return d.ConnectionPool.Config().ConnConfig.Config.Copy()
+// returns a copy of the Connection Configuration that is safe to modify
+func (d DatabaseServer) GetConfig() (config *pgx.ConnConfig) {
+	config = d.ConnectionPool.Config().ConnConfig.Copy()
+	return config
 }
 
 func (d DatabaseServer) CreateUserOrUpdatePassword(userName string, password string) (err error) {
@@ -95,6 +96,14 @@ func (d DatabaseServer) ReconcileDatabaseState(userName string, databaseName str
 	}
 	err = d.EnsureUserHasAllPrivileges(userName, databaseName)
 	return err
+}
+
+func CheckConnection(config pgx.ConnConfig) error {
+	conn, err := pgx.ConnectConfig(context.Background(), &config)
+	if err != nil {
+		return err
+	}
+	return conn.Ping(context.Background())
 }
 
 //Accepts libpq environment variables https://www.postgresql.org/docs/9.4/libpq-envars.html

@@ -176,4 +176,31 @@ var _ = Describe("DatabaseServer", func() {
 			Expect(exists).To(BeTrue())
 		})
 	})
+	Describe("CheckConnection", func() {
+		It("Fails ewith incorrect connection details", func() {
+			db, err := NewDatabaseServerFromEnvironment()
+			Expect(err).NotTo(HaveOccurred())
+			password := "wrong-password"
+			user := "wrong-user"
+			database := "non-existing-database"
+			config := *db.GetConfig()
+			config.Config.Password = password
+			config.Config.User = user
+			config.Config.Database = database
+			Expect(CheckConnection(config)).NotTo(Succeed())
+		})
+		It("Succeeds with correct connection details", func() {
+			db, err := NewDatabaseServerFromEnvironment()
+			Expect(err).NotTo(HaveOccurred())
+			password := "correct_password"
+			user := "correct_user"
+			database := "newly_created_database"
+			Expect(db.ReconcileDatabaseState(user, database, password)).To(Succeed())
+			config := *db.GetConfig()
+			config.Config.Password = password
+			config.Config.User = user
+			config.Config.Database = database
+			Expect(CheckConnection(config)).To(Succeed())
+		})
+	})
 })

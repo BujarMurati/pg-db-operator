@@ -22,9 +22,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/jackc/pgconn"
+	pgx "github.com/jackc/pgx/v4"
 	"github.com/sethvargo/go-password/password"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -37,7 +36,7 @@ import (
 )
 
 type DatabaseStateReconciler interface {
-	GetConfig() (config *pgconn.Config)
+	GetConfig() (config *pgx.ConnConfig)
 	ReconcileDatabaseState(userName string, databaseName string, password string) (err error)
 }
 
@@ -81,7 +80,7 @@ func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
-	config := r.Database.GetConfig()
+	config := r.Database.GetConfig().Config
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      postgresDatabase.Spec.SecretName,
