@@ -27,7 +27,7 @@ import (
 
 	dbv1beta1 "github.com/bujarmurati/pg-db-operator/api/v1beta1"
 	"github.com/bujarmurati/pg-db-operator/database"
-	"github.com/jackc/pgconn"
+	pgx "github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sethvargo/go-password/password"
@@ -58,11 +58,9 @@ var (
 	postgresContainer    testcontainers.Container
 	clientset            *kubernetes.Clientset
 	skipNamespaceCleanup bool
-	connConfig           *pgconn.Config
+	connConfig           *pgx.ConnConfig
 )
 
-// For debugging purposes you can set SKIP_NAMESPACE_CLEANUP
-// in order to be able to inspect cluster state after a test run
 const (
 	OperatorNamespace = "testing"
 	ExpectedPassword  = "password"
@@ -164,7 +162,7 @@ var _ = BeforeSuite(func() {
 		Expect(err).NotTo(HaveOccurred())
 		return db.ConnectionPool.Ping(context.Background())
 	}, postgresStartupTimeout).Should(Succeed())
-	connConfig = &db.GetConfig().Config
+	connConfig = db.GetConfig()
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 

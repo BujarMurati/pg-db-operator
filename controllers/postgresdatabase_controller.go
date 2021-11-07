@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	dbv1beta1 "github.com/bujarmurati/pg-db-operator/api/v1beta1"
+	"github.com/bujarmurati/pg-db-operator/database"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -59,6 +60,17 @@ func b64encode(s string) []byte {
 	return []byte(encoded)
 }
 
+func createConnectionConfigFromSpec(password string, spec dbv1beta1.PostgresDatabaseSpec, config *pgx.ConnConfig) (mergedConfig *pgx.ConnConfig) {
+	mergedConfig = config.Copy()
+	mergedConfig.Config.Password = password
+	mergedConfig.Config.User = spec.DatabaseName + spec.UserNamePostFix
+	mergedConfig.Config.Database = spec.DatabaseName
+	return mergedConfig
+}
+func createConnectionString(config *pgx.ConnConfig) string {
+	return fmt.Sprintf("postgresql://%v:%v@%v:%v/%v", config.User, config.Password, config.Host, config.Port, config.Database)
+}
+
 var gvk schema.GroupVersionKind = dbv1beta1.GroupVersion.WithKind(reflect.TypeOf(dbv1beta1.PostgresDatabase{}).Name())
 
 //+kubebuilder:rbac:groups=db.bujarmurati.com,resources=postgresdatabases,verbs=get;list;watch;create;update;patch;delete
@@ -80,17 +92,18 @@ func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
-	config := r.Database.GetConfig().Config
+	targetConfig := createConnectionConfigFromSpec(password, postgresDatabase.Spec, r.Database.GetConfig())
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      postgresDatabase.Spec.SecretName,
 			Namespace: postgresDatabase.Namespace,
 		},
 		Data: map[string][]byte{
-			"PGPASSWORD": b64encode(password),
-			"PGHOST":     b64encode(config.Host),
-			"PGPORT":     b64encode(fmt.Sprint(config.Port)),
-			"PGUSER":     b64encode(postgresDatabase.Spec.DatabaseName + postgresDatabase.Spec.UserNamePostFix),
+			"PG_CONNECTION_STRING": b64encode(createConnectionString(targetConfig)),
+			"PGPASSWORD":           b64encode(targetConfig.Config.Password),
+			"PGHOST":               b64encode(targetConfig.Config.Host),
+			"PGPORT":               b64encode(fmt.Sprint(targetConfig.Config.Port)),
+			"PGUSER":               b64encode(targetConfig.Config.User),
 		},
 	}
 	ownerRef := metav1.NewControllerRef(&postgresDatabase, gvk)
@@ -99,6 +112,13 @@ func (r *PostgresDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		log.Error(err, "unable to create Secret")
 		return ctrl.Result{}, err
+	}
+	if database.CheckConnection(*targetConfig) != nil {
+		err = r.Database.ReconcileDatabaseState(postgresDatabase.Spec.DatabaseName, postgresDatabase.Spec.DatabaseName, password)
+		if err != nil {
+			log.Error(err, "unable to reconcile database state")
+			return ctrl.Result{Requeue: true}, err
+		}
 	}
 
 	return ctrl.Result{}, nil

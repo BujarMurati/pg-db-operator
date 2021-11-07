@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	dbv1beta1 "github.com/bujarmurati/pg-db-operator/api/v1beta1"
+	"github.com/bujarmurati/pg-db-operator/database"
 )
 
 const (
@@ -51,9 +53,8 @@ func defaultPostgresDatabase(namespace string) *dbv1beta1.PostgresDatabase {
 			Namespace: namespace,
 		},
 		Spec: dbv1beta1.PostgresDatabaseSpec{
-			DatabaseName:    "db-" + namespace,
-			SecretName:      "secret-" + namespace,
-			UserNamePostFix: "@" + connConfig.Host,
+			DatabaseName: "db_" + strings.ReplaceAll(namespace, "-", "_"),
+			SecretName:   "secret-" + namespace,
 		},
 	}
 }
@@ -70,6 +71,16 @@ func waitForPostgresDatabaseResourceCreation(ctx context.Context, namespace stri
 	}, timeout, interval).Should(BeTrue())
 	return createdPostgresDatabase
 }
+
+var _ = Describe("createConnectionConfigFromSpec", func() {
+	It("creates a correct config", func() {
+		result := createConnectionConfigFromSpec(ExpectedPassword, dbv1beta1.PostgresDatabaseSpec{}, connConfig)
+		Expect(result.Config.Password).To(Equal(ExpectedPassword))
+		connString := createConnectionString(result)
+		Expect(connString).To(ContainSubstring(ExpectedPassword))
+
+	})
+})
 
 var _ = Describe("PostgresDatabase controller", func() {
 
@@ -98,7 +109,7 @@ var _ = Describe("PostgresDatabase controller", func() {
 			It("Should create a new secret", func() {
 				ctx := context.Background()
 				postgresDatabase := defaultPostgresDatabase(PostgresDatabaseNamespace)
-				postgresDatabase.Spec.UserNamePostFix = "@" + connConfig.Host
+				postgresDatabase.Spec.UserNamePostFix = "@" + connConfig.Config.Host
 				createdPostgresDatabase := waitForPostgresDatabaseResourceCreation(ctx, PostgresDatabaseNamespace, postgresDatabase)
 				By("Creating a new opaque secret")
 				var createdSecret *corev1.Secret
@@ -107,17 +118,40 @@ var _ = Describe("PostgresDatabase controller", func() {
 					return err
 				}).Should(Succeed())
 				Expect(string(createdSecret.Type)).To(Equal("Opaque"))
-
+				targetConfig := createConnectionConfigFromSpec(ExpectedPassword, postgresDatabase.Spec, connConfig)
 				By("Creating the secret with a correct data")
+				assertDatumInSecret("PG_CONNECTION_STRING", createConnectionString(targetConfig), createdSecret.Data)
+				connString, err := b64decode(createdSecret.Data["PG_CONNECTION_STRING"])
+				Expect(err).NotTo(HaveOccurred())
+				Expect(strings.Contains(connString, ExpectedPassword)).To(BeTrue())
 				assertDatumInSecret("PGPASSWORD", ExpectedPassword, createdSecret.Data)
 				assertDatumInSecret("PGUSER", postgresDatabase.Spec.DatabaseName+postgresDatabase.Spec.UserNamePostFix, createdSecret.Data)
-				assertDatumInSecret("PGHOST", connConfig.Host, createdSecret.Data)
-				assertDatumInSecret("PGPORT", fmt.Sprint(connConfig.Port), createdSecret.Data)
+				assertDatumInSecret("PGHOST", connConfig.Config.Host, createdSecret.Data)
+				assertDatumInSecret("PGPORT", fmt.Sprint(connConfig.Config.Port), createdSecret.Data)
 
 				By("Setting an OwnerReference on the secret")
 				expectedOwnerReference := metav1.NewControllerRef(createdPostgresDatabase, gvk)
 				Expect(createdSecret.ObjectMeta.OwnerReferences).To(ContainElement(*expectedOwnerReference))
+			})
+		})
+		Context("With the new secret's connection string", func() {
+			It("Should be possible to connect to the database", func() {
+				ctx := context.Background()
+				postgresDatabase := defaultPostgresDatabase(PostgresDatabaseNamespace)
+				waitForPostgresDatabaseResourceCreation(ctx, PostgresDatabaseNamespace, postgresDatabase)
 
+				var createdSecret *corev1.Secret
+				Eventually(func() (err error) {
+					createdSecret, err = clientset.CoreV1().Secrets(PostgresDatabaseNamespace).Get(context.Background(), postgresDatabase.Spec.SecretName, metav1.GetOptions{})
+					return err
+				}, time.Second*5).Should(Succeed())
+				connString, err := b64decode(createdSecret.Data["PG_CONNECTION_STRING"])
+				Expect(err).NotTo(HaveOccurred())
+				config, err := pgx.ParseConfig(connString)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() error {
+					return database.CheckConnection(*config)
+				}, time.Second*5).Should(Succeed())
 			})
 		})
 
